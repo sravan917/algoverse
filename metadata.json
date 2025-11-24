@@ -1,0 +1,5 @@
+{
+  "name": "AlgoVerse 3D",
+  "description": "A stunning, cyberpunk-themed 3D algorithm visualizer for Sorting, Pathfinding, N-Queens, and TSP using React, Three.js, and Tailwind.",
+  "requestFramePermissions": []
+}
