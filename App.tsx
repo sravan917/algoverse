@@ -62,7 +62,61 @@ const SidebarItem = ({ label, active, onClick, icon: Icon }: any) => (
 
 // --- SCENE COMPONENTS ---
 
+const useProceduralTexture = (width = 512, height = 512, type: 'rocky' | 'terran') => {
+  return useMemo(() => {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+
+    // Fill background
+    ctx.fillStyle = '#000000';
+    ctx.fillRect(0, 0, width, height);
+
+    // Simple noise function
+    const drawNoise = (density: number, opacity: number, minSize: number, maxSize: number) => {
+        for (let i = 0; i < density; i++) {
+            const x = Math.random() * width;
+            const y = Math.random() * height;
+            const size = Math.random() * (maxSize - minSize) + minSize;
+            const gray = Math.floor(Math.random() * 255);
+            ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${opacity})`;
+            ctx.beginPath();
+            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    if (type === 'rocky') {
+        // Sharp, high frequency noise for bumps
+        drawNoise(2000, 0.5, 1, 3);
+        drawNoise(500, 0.3, 3, 8);
+    } else if (type === 'terran') {
+        // Larger continents/craters
+        drawNoise(50, 0.4, 20, 60);
+        drawNoise(1000, 0.2, 2, 5);
+        // Add some lines for "canyons"
+        ctx.strokeStyle = 'rgba(100,100,100,0.2)';
+        ctx.lineWidth = 2;
+        for(let i=0; i<20; i++) {
+            ctx.beginPath();
+            ctx.moveTo(Math.random() * width, Math.random() * height);
+            ctx.lineTo(Math.random() * width, Math.random() * height);
+            ctx.stroke();
+        }
+    }
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    return texture;
+  }, [width, height, type]);
+};
+
 const RandomPlanets = () => {
+  const rockyMap = useProceduralTexture(256, 256, 'rocky');
+
   // Generate 250 random planets with Royal Theme Palette
   const planets = useMemo(() => {
     const temp = [];
@@ -101,11 +155,13 @@ const RandomPlanets = () => {
       {planets.map((planet) => (
         <Float key={planet.id} speed={0.5} rotationIntensity={0.2} floatIntensity={0.5}>
           <group position={planet.pos}>
-            <Sphere args={[planet.size, 16, 16]}>
+            <Sphere args={[planet.size, 32, 32]}>
               <meshStandardMaterial 
                 color={planet.color} 
                 roughness={planet.roughness} 
                 metalness={planet.metalness}
+                bumpMap={rockyMap || undefined}
+                bumpScale={0.05}
               />
             </Sphere>
             {planet.hasRing && (
@@ -123,27 +179,29 @@ const RandomPlanets = () => {
 }
 
 const DeepSpaceEnvironment = () => {
+  const terranMap = useProceduralTexture(512, 512, 'terran');
+
   return (
     <group>
-      {/* 1. Deep Void */}
+      {/* 1. Deep Void - Lightened to Deep Twilight Purple for brightness */}
       <Sphere args={[450, 64, 64]}>
-        <meshBasicMaterial color="#0f0518" side={THREE.BackSide} /> {/* Deep Purple/Black */}
+        <meshBasicMaterial color="#1e1836" side={THREE.BackSide} /> 
       </Sphere>
 
-      {/* 2. Royal Nebula Clouds - Massive BackDrops */}
+      {/* 2. Royal Nebula Clouds - Increased Opacity for brightness/color */}
       {/* Gold Cloud - Right */}
       <Sphere args={[400, 64, 64]} position={[50, 0, 0]} rotation={[0, 0, 0.5]}>
-         <meshBasicMaterial color="#d97706" transparent opacity={0.06} side={THREE.BackSide} depthWrite={false} />
+         <meshBasicMaterial color="#d97706" transparent opacity={0.15} side={THREE.BackSide} depthWrite={false} />
       </Sphere>
       
       {/* Magenta Cloud - Left */}
       <Sphere args={[380, 64, 64]} position={[-50, 20, 0]} rotation={[0, 0, -0.5]}>
-         <meshBasicMaterial color="#db2777" transparent opacity={0.06} side={THREE.BackSide} depthWrite={false} />
+         <meshBasicMaterial color="#db2777" transparent opacity={0.15} side={THREE.BackSide} depthWrite={false} />
       </Sphere>
 
       {/* Teal/Mint Cloud - Bottom */}
       <Sphere args={[420, 64, 64]} position={[0, -50, 0]}>
-         <meshBasicMaterial color="#0d9488" transparent opacity={0.05} side={THREE.BackSide} depthWrite={false} />
+         <meshBasicMaterial color="#0d9488" transparent opacity={0.12} side={THREE.BackSide} depthWrite={false} />
       </Sphere>
 
       <RandomPlanets />
@@ -179,6 +237,9 @@ const DeepSpaceEnvironment = () => {
                     color="#b45309" // Amber 700
                     roughness={0.2} 
                     metalness={0.9}
+                    map={terranMap || undefined}
+                    bumpMap={terranMap || undefined}
+                    bumpScale={0.1}
                 />
             </Sphere>
             {/* Atmosphere Layer */}
@@ -375,11 +436,16 @@ export default function App() {
       <div className="flex-1 flex flex-col relative">
         <div className="absolute inset-0 z-0">
           <Canvas camera={{ position: [0, 6, 20], fov: 45 }}>
-            <fog attach="fog" args={['#0f0518', 50, 350]} />
-            <ambientLight intensity={0.4} />
-            {/* Pink and Gold Lights */}
-            <pointLight position={[20, 20, 10]} intensity={1.5} color="#fbbf24" distance={100} />
-            <pointLight position={[-20, 10, -10]} intensity={1.2} color="#f472b6" distance={100} />
+            <fog attach="fog" args={['#1e1836', 50, 350]} />
+            
+            {/* Brighter Ambient & Fill Light */}
+            <ambientLight intensity={1.5} />
+            <hemisphereLight skyColor="#a855f7" groundColor="#000000" intensity={1.0} />
+
+            {/* Brighter Point Lights */}
+            <pointLight position={[20, 20, 10]} intensity={4.0} color="#fbbf24" distance={100} />
+            <pointLight position={[-20, 10, -10]} intensity={3.5} color="#f472b6" distance={100} />
+            
             <Stars radius={300} depth={50} count={6000} factor={4} saturation={1} fade speed={1} />
             <DeepSpaceEnvironment />
             <group position={[0, 0, 0]}>
