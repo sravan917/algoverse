@@ -1,13 +1,15 @@
+
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Box, Text, Cylinder, Edges, Sparkles } from '@react-three/drei';
 import * as THREE from 'three';
 
 // --- MATERIALS & COLORS ---
-const COLOR_DEFAULT = "#475569"; // Slate 600
-const COLOR_ACCENT = "#06b6d4"; // Cyan 500
-const COLOR_ACTIVE = "#d946ef"; // Fuchsia 500
-const COLOR_SUCCESS = "#22c55e"; // Green 500
+// MYSTIC CRYSTAL THEME
+const COLOR_DEFAULT = "#e2e8f0"; // Silver/White - High visibility
+const COLOR_ACCENT = "#2dd4bf"; // Teal
+const COLOR_ACTIVE = "#f43f5e"; // Rose 500
+const COLOR_SUCCESS = "#34d399"; // Emerald 400
 
 // --- SORTING VISUALIZER ---
 interface SortingModuleProps {
@@ -41,6 +43,9 @@ const SortingPillar: React.FC<SortingPillarProps> = ({
     let emissiveColor = "#000000";
     let baseEmissiveIntensity = 0;
 
+    // Solid Glass Look
+    const opacity = 0.9;
+
     if (isHighlighted) {
         color = COLOR_ACTIVE;
         emissiveColor = COLOR_ACTIVE;
@@ -56,7 +61,7 @@ const SortingPillar: React.FC<SortingPillarProps> = ({
     useFrame(({ clock }) => {
         if (isSorted && materialRef.current) {
              const t = clock.getElapsedTime();
-             // Pulse between 0.5 and 1.2
+             // Gentle pulse
              materialRef.current.emissiveIntensity = 0.5 + (Math.sin(t * 3) * 0.35 + 0.35); 
         }
     });
@@ -64,7 +69,7 @@ const SortingPillar: React.FC<SortingPillarProps> = ({
     return (
         <group position={[startX + idx * (width + gap), 0, 0]}>
             <Cylinder
-                args={[radius, radius, val, 6]} 
+                args={[radius, radius, val, 32]} 
                 position={[0, val / 2, 0]}
             >
                 <meshStandardMaterial 
@@ -72,10 +77,16 @@ const SortingPillar: React.FC<SortingPillarProps> = ({
                     color={color} 
                     emissive={emissiveColor} 
                     emissiveIntensity={baseEmissiveIntensity} 
-                    roughness={0.2}
-                    metalness={0.7}
+                    roughness={0.1}
+                    metalness={0.8}
+                    transparent={true}
+                    opacity={opacity}
                 />
-                <Edges color={isSorted ? "#86efac" : "#94a3b8"} threshold={15} />
+                {/* Darker edges for silver pillars, Lighter for colored ones */}
+                <Edges 
+                    color={isHighlighted ? "#fda4af" : isSorted ? "#6ee7b7" : "#94a3b8"} 
+                    threshold={15} 
+                />
             </Cylinder>
             
             {isSorted && (
@@ -85,7 +96,7 @@ const SortingPillar: React.FC<SortingPillarProps> = ({
                     position={[0, val / 2, 0]}
                     speed={0.8}
                     opacity={1}
-                    color="#4ade80"
+                    color="#6ee7b7"
                     size={3}
                     noise={0.2}
                 />
@@ -106,7 +117,7 @@ const SortingPillar: React.FC<SortingPillarProps> = ({
             <Text
                 position={[0, -0.6, 0.5]}
                 fontSize={0.35}
-                color="#64748b"
+                color="#94a3b8"
                 anchorX="center"
                 anchorY="middle"
             >
@@ -123,9 +134,13 @@ export const SortingModule: React.FC<SortingModuleProps> = ({
 }) => {
   const gap = 0.4;
   const width = 0.8; 
-  const radius = width / 1.8; // Hexagon radius
+  const radius = width / 1.8; 
   const totalWidth = data.length * (width + gap);
   const startX = -totalWidth / 2 + width / 2;
+
+  // Platform Size
+  const platWidth = Math.max(totalWidth + 4, 15);
+  const platDepth = 8;
 
   return (
     <group position={[0, -4, 0]}>
@@ -143,12 +158,23 @@ export const SortingModule: React.FC<SortingModuleProps> = ({
         />
       ))}
       
-      {/* Base Platform */}
-      <Box args={[totalWidth + 4, 0.2, 6]} position={[0, -0.1, 0]}>
-         <meshStandardMaterial color="#0f172a" metalness={0.8} roughness={0.2} />
-         <Edges color="#1e293b" />
-      </Box>
-      <gridHelper args={[totalWidth + 10, 20, 0x1e293b, 0x0f172a]} position={[0, -0.05, 0]} />
+      {/* Base Platform Group - Dark Slate to let pillars pop */}
+      <group position={[0, -0.25, 0]}>
+          <Box args={[platWidth, 0.5, platDepth]}>
+             <meshStandardMaterial 
+                color="#0f172a" 
+                metalness={0.5} 
+                roughness={0.4} 
+             />
+             <Edges color="#334155" threshold={15} />
+          </Box>
+      </group>
+      
+      {/* Global Floor Grid */}
+      <gridHelper 
+        args={[100, 40, 0x334155, 0x1e293b]} 
+        position={[0, -0.5, 0]} 
+      />
     </group>
   );
 };
