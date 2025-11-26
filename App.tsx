@@ -62,60 +62,75 @@ const SidebarItem = ({ label, active, onClick, icon: Icon }: any) => (
 
 // --- SCENE COMPONENTS ---
 
-const useProceduralTexture = (width = 512, height = 512, type: 'rocky' | 'terran') => {
+const usePlanetTextureSet = () => {
   return useMemo(() => {
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
+    const createTexture = (width: number, height: number, drawFn: (ctx: CanvasRenderingContext2D) => void) => {
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+            drawFn(ctx);
+        }
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.wrapS = THREE.RepeatWrapping;
+        tex.wrapT = THREE.RepeatWrapping;
+        return tex;
+    };
 
-    // Fill background
-    ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, width, height);
-
-    // Simple noise function
-    const drawNoise = (density: number, opacity: number, minSize: number, maxSize: number) => {
-        for (let i = 0; i < density; i++) {
-            const x = Math.random() * width;
-            const y = Math.random() * height;
-            const size = Math.random() * (maxSize - minSize) + minSize;
-            const gray = Math.floor(Math.random() * 255);
-            ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${opacity})`;
+    // 1. Rocky Texture (Bump Map) - High contrast noise
+    const rocky = createTexture(512, 512, (ctx) => {
+        ctx.fillStyle = '#808080';
+        ctx.fillRect(0, 0, 512, 512);
+        // Craters / Noise
+        for(let i=0; i<400; i++) {
+            const x = Math.random() * 512;
+            const y = Math.random() * 512;
+            const size = Math.random() * 15 + 2;
+            const shade = Math.floor(Math.random() * 100); 
+            ctx.fillStyle = `rgba(${shade},${shade},${shade}, 0.3)`;
             ctx.beginPath();
-            ctx.arc(x, y, size, 0, Math.PI * 2);
+            ctx.arc(x, y, size, 0, Math.PI*2);
             ctx.fill();
         }
-    }
+        // Fine grain
+        for(let i=0; i<5000; i++) {
+             ctx.fillStyle = `rgba(0,0,0,0.1)`;
+             ctx.fillRect(Math.random()*512, Math.random()*512, 2, 2);
+        }
+    });
 
-    if (type === 'rocky') {
-        // Sharp, high frequency noise for bumps
-        drawNoise(2000, 0.5, 1, 3);
-        drawNoise(500, 0.3, 3, 8);
-    } else if (type === 'terran') {
-        // Larger continents/craters
-        drawNoise(50, 0.4, 20, 60);
-        drawNoise(1000, 0.2, 2, 5);
-        // Add some lines for "canyons"
-        ctx.strokeStyle = 'rgba(100,100,100,0.2)';
+    // 2. Gas Texture (Albedo Map) - Horizontal Bands
+    const gas = createTexture(512, 512, (ctx) => {
+        // Create bands
+        const gradient = ctx.createLinearGradient(0, 0, 0, 512);
+        let currentPos = 0;
+        while(currentPos < 1) {
+            const colorVal = Math.floor(Math.random() * 100 + 155); // Keep it light for tinting
+            gradient.addColorStop(currentPos, `rgb(${colorVal}, ${colorVal}, ${colorVal})`);
+            currentPos += Math.random() * 0.15;
+        }
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0,0,512,512);
+        
+        // Add subtle swirl lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.1)';
         ctx.lineWidth = 2;
         for(let i=0; i<20; i++) {
+            const y = Math.random() * 512;
             ctx.beginPath();
-            ctx.moveTo(Math.random() * width, Math.random() * height);
-            ctx.lineTo(Math.random() * width, Math.random() * height);
+            ctx.moveTo(0, y);
+            ctx.bezierCurveTo(170, y + Math.random()*50, 340, y - Math.random()*50, 512, y);
             ctx.stroke();
         }
-    }
+    });
 
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.wrapS = THREE.RepeatWrapping;
-    texture.wrapT = THREE.RepeatWrapping;
-    return texture;
-  }, [width, height, type]);
+    return { rocky, gas };
+  }, []);
 };
 
 const RandomPlanets = () => {
-  const rockyMap = useProceduralTexture(256, 256, 'rocky');
+  const { rocky, gas } = usePlanetTextureSet();
 
   // Generate 250 random planets with Royal Theme Palette
   const planets = useMemo(() => {
@@ -126,7 +141,7 @@ const RandomPlanets = () => {
         "#f43f5e", // Rose/Ruby
         "#8b5cf6", // Violet
         "#10b981", // Emerald
-        "#64748b"  // Slate
+        "#94a3b8"  // Slate
     ];
     
     for (let i = 0; i < 250; i++) {
@@ -141,11 +156,21 @@ const RandomPlanets = () => {
       const size = 0.5 + Math.random() * 3.5;
       const color = colors[Math.floor(Math.random() * colors.length)];
       const hasRing = Math.random() > 0.8;
-      // Varied material properties for realism
-      const metalness = Math.random() * 0.8;
-      const roughness = 0.2 + Math.random() * 0.6;
       
-      temp.push({ pos: [x, y, z] as [number, number, number], size, color, id: i, hasRing, metalness, roughness });
+      const type = Math.random() > 0.6 ? 'gas' : 'rocky';
+      const metalness = type === 'gas' ? 0.1 : Math.random() * 0.5;
+      const roughness = type === 'gas' ? 0.4 : 0.7 + Math.random() * 0.3;
+      
+      temp.push({ 
+          pos: [x, y, z] as [number, number, number], 
+          size, 
+          color, 
+          id: i, 
+          hasRing, 
+          metalness, 
+          roughness,
+          type 
+      });
     }
     return temp;
   }, []);
@@ -160,8 +185,9 @@ const RandomPlanets = () => {
                 color={planet.color} 
                 roughness={planet.roughness} 
                 metalness={planet.metalness}
-                bumpMap={rockyMap || undefined}
-                bumpScale={0.05}
+                map={planet.type === 'gas' ? gas : undefined}
+                bumpMap={planet.type === 'rocky' ? rocky : undefined}
+                bumpScale={0.15}
               />
             </Sphere>
             {planet.hasRing && (
@@ -179,7 +205,7 @@ const RandomPlanets = () => {
 }
 
 const DeepSpaceEnvironment = () => {
-  const terranMap = useProceduralTexture(512, 512, 'terran');
+  const { rocky } = usePlanetTextureSet();
 
   return (
     <group>
@@ -208,7 +234,7 @@ const DeepSpaceEnvironment = () => {
 
       {/* --- HERO PLANETS --- */}
 
-      {/* The Ruby Giant (Replaces Solar) */}
+      {/* The Ruby Giant (Animated Surface) */}
       <Float speed={1} rotationIntensity={0.2} floatIntensity={0.5}>
         <group position={[80, 30, -150]}>
             <Sphere args={[20, 128, 128]}>
@@ -228,18 +254,17 @@ const DeepSpaceEnvironment = () => {
         </group>
       </Float>
 
-      {/* The Golden World (Replaces Ice) */}
+      {/* The Golden World (Textured Desert) */}
       <Float speed={1.5} rotationIntensity={0.5} floatIntensity={1}>
         <group position={[-90, 15, -120]}>
             {/* Core */}
             <Sphere args={[15, 64, 64]}>
                 <meshStandardMaterial 
                     color="#b45309" // Amber 700
-                    roughness={0.2} 
-                    metalness={0.9}
-                    map={terranMap || undefined}
-                    bumpMap={terranMap || undefined}
-                    bumpScale={0.1}
+                    roughness={0.6} 
+                    metalness={0.2}
+                    bumpMap={rocky}
+                    bumpScale={0.3}
                 />
             </Sphere>
             {/* Atmosphere Layer */}
