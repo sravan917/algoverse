@@ -1,4 +1,3 @@
-
 import React, { useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Box, Text, Cylinder, Edges, Sparkles } from '@react-three/drei';
@@ -17,16 +16,7 @@ interface SortingModuleProps {
   sortedIndices: number[];
 }
 
-const SortingPillar = ({ 
-    val, 
-    idx, 
-    width, 
-    radius, 
-    gap, 
-    startX, 
-    isHighlighted, 
-    isSorted, 
-}: {
+interface SortingPillarProps {
     val: number;
     idx: number;
     width: number;
@@ -35,6 +25,17 @@ const SortingPillar = ({
     startX: number;
     isHighlighted: boolean;
     isSorted: boolean;
+}
+
+const SortingPillar: React.FC<SortingPillarProps> = ({ 
+    val, 
+    idx, 
+    width, 
+    radius, 
+    gap, 
+    startX, 
+    isHighlighted, 
+    isSorted, 
 }) => {
     let color = COLOR_DEFAULT;
     let emissiveColor = "#000000";
